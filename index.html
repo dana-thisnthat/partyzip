@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Partyzip</title>
+  <style>
+    :root{
+      --bg:#050816; --card:#0b1220; --bd:#1f2937;
+      --txt:#e5e7eb; --muted:#9ca3af; --acc:#f97316;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,sans-serif;
+      color:var(--txt);
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #000 100%);
+    }
+    .wrap{max-width:520px;margin:0 auto;padding:18px 16px 40px}
+    header{margin-top:10px}
+    h1{margin:8px 0 6px;font-size:28px;letter-spacing:-.5px}
+    p{margin:0;color:var(--muted);font-size:14px;line-height:1.45}
+    .card{
+      margin-top:16px;
+      background:rgba(11,18,32,.96);
+      border:1px solid var(--bd);
+      border-radius:16px;
+      padding:14px;
+    }
+    .btn{
+      width:100%;
+      border:0;
+      border-radius:999px;
+      padding:12px 14px;
+      font-size:15px;
+      cursor:pointer;
+      display:flex;justify-content:center;align-items:center;gap:6px;
+      margin-top:10px;
+    }
+    .primary{background:linear-gradient(135deg,#f97316,#facc15);color:#111827;font-weight:700}
+    .ghost{background:transparent;border:1px solid #4b5563;color:var(--txt)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .row > *{flex:1 1 180px}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input{
+      width:100%;
+      border-radius:12px;
+      border:1px solid #374151;
+      background:#020617;
+      color:var(--txt);
+      padding:11px 12px;
+      font-size:14px;
+      outline:none;
+    }
+    input:focus{border-color:var(--acc); box-shadow:0 0 0 1px rgba(249,115,22,.35)}
+    .small{font-size:12px;color:var(--muted);margin-top:8px}
+    .toast{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+      background:rgba(15,23,42,.95);border:1px solid rgba(148,163,184,.6);
+      padding:7px 12px;border-radius:999px;font-size:12px;
+      opacity:0;transition:opacity .2s;pointer-events:none;
+    }
+    .toast.show{opacity:1}
+    a{color:#fed7aa}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Partyzip</h1>
+      <p>초대장 만들기부터 파티 현장 미니게임, 방명록까지.<br/>파티의 전·중·후를 한 링크로 정리해요.</p>
+    </header>
+
+    <div class="card">
+      <button class="btn primary" id="btnNew">파티 시작하기</button>
+      <div class="small">새 파티 코드를 만들고 초대장 만들기로 이동합니다.</div>
+
+      <hr style="border:0;border-top:1px solid rgba(148,163,184,.25);margin:14px 0;">
+
+      <label for="codeInput">기존 파티 코드로 입장</label>
+      <input id="codeInput" placeholder="예: A1B2C3" autocomplete="off" />
+      <button class="btn ghost" id="btnEnter">기존 파티 입장하기</button>
+      <div class="small">
+        이 프로토타입은 데이터가 기기(브라우저)에 저장됩니다.  
+        다른 기기에서 같은 데이터를 보려면 서버(DB) 연동이 필요해요.
+      </div>
+    </div>
+
+    <div class="toast" id="toast">안내</div>
+  </div>
+
+<script>
+  // ===== Storage Helpers =====
+  const KEY = "partyzip_parties_v1";
+  function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY) || "{}"); }catch(e){ return {}; } }
+  function saveAll(obj){ localStorage.setItem(KEY, JSON.stringify(obj)); }
+
+  function toast(msg){
+    const t=document.getElementById("toast");
+    t.textContent=msg; t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"), 1500);
+  }
+
+  function genCode(){
+    const chars="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let out="";
+    for(let i=0;i<6;i++) out += chars[Math.floor(Math.random()*chars.length)];
+    return out;
+  }
+
+  function ensureUniqueCode(){
+    const all = loadAll();
+    let code = genCode();
+    while(all[code]) code = genCode();
+    return code;
+  }
+
+  function routeByDate(party){
+    // party.startDate: YYYY-MM-DD
+    const today = new Date(); today.setHours(0,0,0,0);
+    const start = party.startDate ? new Date(party.startDate + "T00:00:00") : null;
+
+    if(!start) return "before.html";
+    const diffDays = Math.round((start - today) / (1000*60*60*24));
+
+    if(diffDays > 0) return "before.html";
+    if(diffDays === 0) return "party.html";
+    return "after.html";
+  }
+
+  document.getElementById("btnNew").addEventListener("click", ()=>{
+    const all = loadAll();
+    const code = ensureUniqueCode();
+    all[code] = {
+      code,
+      theme: "xmas",
+      title: "",
+      subtitle: "",
+      startDate: "",
+      startTime: "",
+      endDate: "",
+      endTime: "",
+      location: "",
+      note: "",
+      // last step page id (for "resume")
+      last: "before"
+    };
+    saveAll(all);
+    location.href = `before.html?code=${encodeURIComponent(code)}`;
+  });
+
+  document.getElementById("btnEnter").addEventListener("click", ()=>{
+    const code = (document.getElementById("codeInput").value || "").trim().toUpperCase();
+    if(!code) return toast("코드를 입력해줘");
+    const all = loadAll();
+    const party = all[code];
+    if(!party) return toast("해당 코드의 파티를 찾지 못했어");
+
+    // 마지막 작업 페이지가 있으면 우선, 없으면 날짜 기준
+    const last = party.last;
+    let target = routeByDate(party);
+    if(last === "before") target = "before.html";
+    if(last === "party")  target = "party.html";
+    if(last === "after")  target = "after.html";
+
+    location.href = `${target}?code=${encodeURIComponent(code)}`;
+  });
+</script>
+</body>
+</html>

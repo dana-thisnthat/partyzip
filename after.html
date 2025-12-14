@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Partyzip · 방명록</title>
+  <style>
+    :root{
+      --bg:#050816; --card:#0b1220; --bd:#1f2937;
+      --txt:#e5e7eb; --muted:#9ca3af; --acc:#f97316;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--txt);
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #000 100%);
+    }
+    .wrap{max-width:560px;margin:0 auto;padding:16px 16px 40px}
+    .top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+    .brand{font-weight:900}
+    .chip{font-size:12px;color:var(--muted);border:1px solid rgba(148,163,184,.35);padding:6px 10px;border-radius:999px}
+    h1{margin:10px 0 4px;font-size:18px}
+    p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .card{margin-top:12px;background:rgba(11,18,32,.96);border:1px solid var(--bd);border-radius:16px;padding:12px}
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input, textarea{
+      width:100%;border-radius:12px;border:1px solid #374151;background:#020617;color:var(--txt);
+      padding:11px 12px;font-size:14px;outline:none
+    }
+    textarea{min-height:70px;resize:vertical}
+    input:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 1px rgba(249,115,22,.35)}
+    .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .btn{
+      border:0;border-radius:999px;padding:11px 14px;font-size:14px;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:1 1 160px
+    }
+    .primary{background:linear-gradient(135deg,#f97316,#facc15);color:#111827;font-weight:900}
+    .ghost{background:transparent;border:1px solid #4b5563;color:var(--txt)}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+    .board{
+      margin-top:10px;border-radius:18px;border:1px solid rgba(148,163,184,.35);
+      overflow:hidden;padding:12px
+    }
+    .entry{padding:10px 0;border-bottom:1px dashed rgba(148,163,184,.35)}
+    .entry:last-child{border-bottom:0}
+    .name{font-weight:900}
+    .msg{color:#cbd5f5;margin-top:4px;white-space:pre-line}
+    .empty{color:var(--muted);font-size:13px}
+    .toast{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+      background:rgba(15,23,42,.95);border:1px solid rgba(148,163,184,.6);
+      padding:7px 12px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;
+      pointer-events:none;z-index:50
+    }
+    .toast.show{opacity:1}
+
+    /* theme backgrounds */
+    .bg-xmas{background: radial-gradient(circle at top, rgba(74,222,128,.18), rgba(2,6,23,.95));}
+    .bg-snow{background: radial-gradient(circle at top, rgba(191,219,254,.18), rgba(2,6,23,.95));}
+    .bg-newyear{background: radial-gradient(circle at top, rgba(251,191,36,.18), rgba(2,6,23,.95));}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Partyzip</div>
+    <div class="chip">코드: <span id="codeText">-</span></div>
+  </div>
+
+  <h1 id="title">방명록</h1>
+  <p>한 줄씩 남기고, 저장해서 단톡방에 공유하세요.</p>
+
+  <div class="card">
+    <label>닉네임</label>
+    <input id="name" placeholder="예: 다나" />
+    <label>메시지</label>
+    <textarea id="msg" placeholder="예: 오늘 너무 좋았다! 다음에도 꼭 이 멤버로 또 모이자 🥂"></textarea>
+    <div class="btnrow">
+      <button class="btn primary" id="btnAdd">방명록에 추가</button>
+    </div>
+    <div class="hint">※ 기기 내 저장(프로토타입). 정식 버전은 여러 사람이 함께 작성하도록 서버 저장이 필요해요.</div>
+  </div>
+
+  <div class="card">
+    <label style="margin-top:0;">롤링페이퍼</label>
+    <div class="board" id="board">
+      <div class="empty">아직 메시지가 없어요. 첫 줄을 남겨보세요.</div>
+    </div>
+    <div class="btnrow" style="margin-top:12px">
+      <button class="btn ghost" id="btnShare">공유하기</button>
+      <button class="btn ghost" id="btnSaveImg">저장하기</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">안내</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+  const KEY="partyzip_parties_v1";
+  function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}"); }catch(e){ return {}; } }
+  function saveAll(o){ localStorage.setItem(KEY, JSON.stringify(o)); }
+  function qs(name){ return new URL(location.href).searchParams.get(name); }
+  function toast(msg){
+    const t=document.getElementById("toast");
+    t.textContent=msg; t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"), 1500);
+  }
+  function themeClass(theme){
+    if(theme==="snow") return "bg-snow";
+    if(theme==="newyear") return "bg-newyear";
+    return "bg-xmas";
+  }
+
+  const code=(qs("code")||"").toUpperCase();
+  document.getElementById("codeText").textContent=code||"-";
+  const all=loadAll();
+  const party=all[code];
+  if(!code || !party){
+    toast("파티 코드를 찾지 못했어. Intro로 이동할게");
+    setTimeout(()=>location.href="index.html",900);
+  } else {
+    party.last="after"; all[code]=party; saveAll(all);
+    document.getElementById("title").textContent = party.title ? `${party.title} · 방명록` : "방명록";
+  }
+
+  // guestbook is stored per code (local)
+  const GKEY = `partyzip_guestbook_${code}`;
+  function loadBook(){ try{ return JSON.parse(localStorage.getItem(GKEY)||"[]"); }catch(e){ return []; } }
+  function saveBook(arr){ localStorage.setItem(GKEY, JSON.stringify(arr)); }
+
+  function render(){
+    const board=document.getElementById("board");
+    board.classList.remove("bg-xmas","bg-snow","bg-newyear");
+    board.classList.add(themeClass(party?.theme || "xmas"));
+
+    const entries=loadBook();
+    board.innerHTML="";
+    if(!entries.length){
+      const div=document.createElement("div");
+      div.className="empty";
+      div.textContent="아직 메시지가 없어요. 첫 줄을 남겨보세요.";
+      board.appendChild(div);
+      return;
+    }
+    entries.forEach(e=>{
+      const wrap=document.createElement("div");
+      wrap.className="entry";
+      const n=document.createElement("div");
+      n.className="name";
+      n.textContent=e.name || "익명";
+      const m=document.createElement("div");
+      m.className="msg";
+      m.textContent=e.msg || "";
+      wrap.appendChild(n); wrap.appendChild(m);
+      board.appendChild(wrap);
+    });
+  }
+
+  document.getElementById("btnAdd").addEventListener("click", ()=>{
+    const name=document.getElementById("name").value.trim() || "익명";
+    const msg=document.getElementById("msg").value.trim();
+    if(!msg) return toast("메시지를 입력해줘");
+    const entries=loadBook();
+    entries.push({name, msg, ts: Date.now()});
+    saveBook(entries);
+    document.getElementById("msg").value="";
+    render();
+    toast("추가했어");
+  });
+
+  document.getElementById("btnShare").addEventListener("click", async ()=>{
+    if(!code) return;
+    const url = `${location.origin}${location.pathname.replace("after.html","after.html")}?code=${encodeURIComponent(code)}`;
+    try{
+      await navigator.clipboard.writeText(url);
+      toast("링크를 복사했어");
+    }catch(e){
+      const ta=document.createElement("textarea"); ta.value=url;
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+      toast("링크를 복사했어");
+    }
+  });
+
+  document.getElementById("btnSaveImg").addEventListener("click", async ()=>{
+    const board=document.getElementById("board");
+    const canvas=await html2canvas(board, {backgroundColor:null, scale:2});
+    const a=document.createElement("a");
+    a.download=`partyzip-guestbook-${code}.png`;
+    a.href=canvas.toDataURL("image/png");
+    a.click();
+    toast("이미지로 저장했어");
+  });
+
+  render();
+</script>
+</body>
+</html>

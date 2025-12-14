@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Partyzip · 초대장 만들기</title>
+  <style>
+    :root{
+      --bg:#050816; --card:#0b1220; --bd:#1f2937;
+      --txt:#e5e7eb; --muted:#9ca3af; --acc:#f97316;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:var(--txt);
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #000 100%);
+    }
+    .wrap{max-width:560px;margin:0 auto;padding:16px 16px 40px}
+    .top{
+      display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px
+    }
+    .brand{font-weight:800;letter-spacing:-.3px}
+    .chip{
+      font-size:12px;color:var(--muted);border:1px solid rgba(148,163,184,.35);
+      padding:6px 10px;border-radius:999px
+    }
+    h1{margin:10px 0 6px;font-size:18px}
+    p{margin:0;color:var(--muted);font-size:13px;line-height:1.45}
+    .card{
+      margin-top:12px;background:rgba(11,18,32,.96);border:1px solid var(--bd);
+      border-radius:16px;padding:12px
+    }
+    label{display:block;font-size:12px;color:var(--muted);margin:10px 0 6px}
+    input, textarea{
+      width:100%;border-radius:12px;border:1px solid #374151;background:#020617;color:var(--txt);
+      padding:11px 12px;font-size:14px;outline:none
+    }
+    textarea{min-height:78px;resize:vertical}
+    input:focus,textarea:focus{border-color:var(--acc);box-shadow:0 0 0 1px rgba(249,115,22,.35)}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .row > *{flex:1 1 200px}
+    .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .btn{
+      border:0;border-radius:999px;padding:11px 14px;font-size:14px;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;gap:6px;flex:1 1 160px
+    }
+    .primary{background:linear-gradient(135deg,#f97316,#facc15);color:#111827;font-weight:800}
+    .ghost{background:transparent;border:1px solid #4b5563;color:var(--txt)}
+    .danger{background:transparent;border:1px solid rgba(251,113,133,.8);color:#fb7185}
+    .hint{font-size:12px;color:var(--muted);margin-top:6px}
+
+    /* theme picker (swipe/scroll) */
+    .themes{
+      display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory;
+    }
+    .theme{
+      flex:0 0 78%; scroll-snap-align:start;
+      border-radius:16px;border:1px solid rgba(148,163,184,.3);
+      padding:12px; background:#020617; position:relative; cursor:pointer;
+      min-height:110px;
+    }
+    .theme input{display:none}
+    .theme .name{font-weight:800;margin-bottom:4px}
+    .theme .desc{font-size:12px;color:var(--muted);line-height:1.4}
+    .theme.selected{border-color:var(--acc);box-shadow:0 0 0 1px rgba(249,115,22,.35)}
+    .bg-xmas{background: radial-gradient(circle at top, rgba(74,222,128,.18), rgba(2,6,23,.95));}
+    .bg-snow{background: radial-gradient(circle at top, rgba(191,219,254,.18), rgba(2,6,23,.95));}
+    .bg-newyear{background: radial-gradient(circle at top, rgba(251,191,36,.18), rgba(2,6,23,.95));}
+
+    /* invite preview */
+    .preview{
+      margin-top:10px;border-radius:18px;border:1px solid rgba(148,163,184,.35);
+      overflow:hidden
+    }
+    .previewHead{
+      padding:14px 14px 10px;
+      display:flex;justify-content:space-between;align-items:flex-start;gap:10px
+    }
+    .dday{
+      font-size:12px;border-radius:999px;padding:6px 10px;
+      border:1px solid rgba(148,163,184,.35);color:#fed7aa;background:rgba(15,23,42,.6)
+    }
+    .title{font-weight:900;letter-spacing:-.2px}
+    .subtitle{margin-top:4px;color:#cbd5f5;font-size:13px}
+    .previewBody{padding:0 14px 14px;color:#e5e7eb;font-size:13px}
+    .meta{margin-top:8px;color:#e5e7eb}
+    .meta .muted{color:var(--muted)}
+    .toast{
+      position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+      background:rgba(15,23,42,.95);border:1px solid rgba(148,163,184,.6);
+      padding:7px 12px;border-radius:999px;font-size:12px;opacity:0;transition:opacity .2s;
+      pointer-events:none;z-index:50
+    }
+    .toast.show{opacity:1}
+
+    a{color:#fed7aa}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">Partyzip</div>
+    <div class="chip">파티 코드: <span id="codeText">-</span></div>
+  </div>
+
+  <h1>파티 초대장을 만들어요</h1>
+  <p>딱 필요한 정보만 입력하면 끝. 링크로 공유하고, 파티 당일엔 자동으로 “파티 모드”로 이어져요.</p>
+
+  <div class="card">
+    <label>테마를 고르세요 (좌우로 스와이프)</label>
+    <div class="themes" id="themes">
+      <div class="theme bg-xmas" data-theme="xmas">
+        <div class="name">크리스마스 무드</div>
+        <div class="desc">따뜻한 연말 분위기. 초대장에 가장 무난해요.</div>
+      </div>
+      <div class="theme bg-snow" data-theme="snow">
+        <div class="name">눈 내리는 무드</div>
+        <div class="desc">시원한 톤. 심플한 모임에도 잘 맞아요.</div>
+      </div>
+      <div class="theme bg-newyear" data-theme="newyear">
+        <div class="name">해피 뉴이어</div>
+        <div class="desc">카운트다운 느낌. 연말·연초에 딱이에요.</div>
+      </div>
+    </div>
+
+    <label>파티 이름</label>
+    <input id="title" placeholder="Goodbye 2025 & Welcome 2026" />
+
+    <label>한 줄 메시지 (선택)</label>
+    <input id="subtitle" placeholder="예: 올해도 같이 보내줘서 고마워 🥂" />
+
+    <div class="row">
+      <div>
+        <label>시작 날짜</label>
+        <input id="startDate" type="date" />
+      </div>
+      <div>
+        <label>시작 시간</label>
+        <input id="startTime" type="time" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>종료 날짜 (선택)</label>
+        <input id="endDate" type="date" />
+      </div>
+      <div>
+        <label>종료 시간 (선택)</label>
+        <input id="endTime" type="time" />
+      </div>
+    </div>
+
+    <label>장소</label>
+    <input id="location" placeholder="예: ○○구 ○○로 123, ○○파티룸 502호" />
+
+    <label>추가 안내 (선택)</label>
+    <textarea id="note" placeholder="예: 준비물 / 파티 타임라인 / 숙소 비밀번호 / 주차 안내 등"></textarea>
+
+    <div class="btnrow">
+      <button class="btn primary" id="btnMake">초대장 만들기</button>
+      <button class="btn ghost" id="btnShare">공유하기</button>
+      <button class="btn ghost" id="btnSaveImg">저장하기</button>
+      <button class="btn danger" id="btnGoIntro">Intro로</button>
+    </div>
+    <div class="hint">※ “저장하기”는 이 화면(초대장)을 이미지로 저장합니다. (프로토타입용)</div>
+  </div>
+
+  <div class="card" id="previewWrap" style="display:none;">
+    <label style="margin-top:0;">초대장 미리보기</label>
+    <div class="preview" id="inviteCard">
+      <div class="previewHead">
+        <div>
+          <div class="title" id="pTitle">-</div>
+          <div class="subtitle" id="pSubtitle" style="display:none;"></div>
+        </div>
+        <div class="dday" id="dday">D-?</div>
+      </div>
+      <div class="previewBody">
+        <div class="meta"><span class="muted">⏰</span> <span id="pWhen">-</span></div>
+        <div class="meta"><span class="muted">📍</span> <span id="pWhere">-</span></div>
+        <div class="meta" id="pNoteWrap" style="display:none;margin-top:10px;">
+          <div class="muted" style="margin-bottom:4px;">추가 안내</div>
+          <div id="pNote" style="white-space:pre-line;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="hint">링크로 들어오면 이 초대장이 기본으로 보이고, 날짜가 되면 파티 중 페이지로 넘어가요.</div>
+  </div>
+
+  <div class="toast" id="toast">안내</div>
+</div>
+
+<!-- html2canvas: 이미지 저장용(정적 배포 시 동작) -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+  // ===== Storage =====
+  const KEY="partyzip_parties_v1";
+  function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY)||"{}"); }catch(e){ return {}; } }
+  function saveAll(o){ localStorage.setItem(KEY, JSON.stringify(o)); }
+
+  function toast(msg){
+    const t=document.getElementById("toast");
+    t.textContent=msg; t.classList.add("show");
+    setTimeout(()=>t.classList.remove("show"), 1600);
+  }
+
+  function qs(name){
+    const u=new URL(location.href);
+    return u.searchParams.get(name);
+  }
+
+  function themeClass(theme){
+    if(theme==="snow") return "bg-snow";
+    if(theme==="newyear") return "bg-newyear";
+    return "bg-xmas";
+  }
+
+  function setInviteBg(theme){
+    const card=document.getElementById("inviteCard");
+    card.classList.remove("bg-xmas","bg-snow","bg-newyear");
+    card.classList.add(themeClass(theme));
+    card.style.background = ""; // handled by class
+  }
+
+  function calcDDay(startDate){
+    if(!startDate) return "D-?";
+    const today=new Date(); today.setHours(0,0,0,0);
+    const target=new Date(startDate+"T00:00:00"); target.setHours(0,0,0,0);
+    const diff=Math.round((target-today)/(1000*60*60*24));
+    if(diff>0) return "D-"+diff;
+    if(diff===0) return "D-Day";
+    return "D+"+Math.abs(diff);
+  }
+
+  function routeByDate(party){
+    const today=new Date(); today.setHours(0,0,0,0);
+    const start=party.startDate ? new Date(party.startDate+"T00:00:00") : null;
+    if(!start) return "before.html";
+    start.setHours(0,0,0,0);
+    const diff=Math.round((start-today)/(1000*60*60*24));
+    if(diff>0) return "before.html";
+    if(diff===0) return "party.html";
+    return "after.html";
+  }
+
+  // ===== Init =====
+  const code = (qs("code")||"").toUpperCase();
+  document.getElementById("codeText").textContent = code || "-";
+
+  const all = loadAll();
+  const party = all[code];
+  if(!code || !party){
+    toast("파티 코드를 찾지 못했어. Intro로 이동할게");
+    setTimeout(()=> location.href="index.html", 900);
+  } else {
+    // mark last
+    party.last="before"; all[code]=party; saveAll(all);
+    // hydrate form
+    document.getElementById("title").value = party.title || "";
+    document.getElementById("subtitle").value = party.subtitle || "";
+    document.getElementById("startDate").value = party.startDate || "";
+    document.getElementById("startTime").value = party.startTime || "";
+    document.getElementById("endDate").value = party.endDate || "";
+    document.getElementById("endTime").value = party.endTime || "";
+    document.getElementById("location").value = party.location || "";
+    document.getElementById("note").value = party.note || "";
+
+    // select theme
+    document.querySelectorAll(".theme").forEach(el=>{
+      el.classList.toggle("selected", el.dataset.theme === (party.theme||"xmas"));
+    });
+  }
+
+  // theme click
+  document.querySelectorAll(".theme").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      document.querySelectorAll(".theme").forEach(x=>x.classList.remove("selected"));
+      el.classList.add("selected");
+      if(code && all[code]){
+        all[code].theme = el.dataset.theme;
+        saveAll(all);
+      }
+      toast("테마를 선택했어");
+    });
+  });
+
+  // make invite
+  document.getElementById("btnMake").addEventListener("click", ()=>{
+    if(!code || !all[code]) return;
+
+    const theme = document.querySelector(".theme.selected")?.dataset.theme || "xmas";
+    const title = document.getElementById("title").value.trim();
+    const startDate = document.getElementById("startDate").value;
+    const startTime = document.getElementById("startTime").value;
+    const locationTxt = document.getElementById("location").value.trim();
+
+    if(!theme) return toast("테마를 골라줘");
+    if(!title) return toast("파티 이름을 입력해줘");
+    if(!startDate || !startTime) return toast("시작 날짜/시간을 입력해줘");
+    if(!locationTxt) return toast("장소를 입력해줘");
+
+    all[code] = {
+      ...all[code],
+      theme,
+      title,
+      subtitle: document.getElementById("subtitle").value.trim(),
+      startDate,
+      startTime,
+      endDate: document.getElementById("endDate").value,
+      endTime: document.getElementById("endTime").value,
+      location: locationTxt,
+      note: document.getElementById("note").value.trim(),
+      last: "before"
+    };
+    saveAll(all);
+
+    // render preview
+    document.getElementById("previewWrap").style.display = "";
+    document.getElementById("pTitle").textContent = all[code].title;
+    const sub = all[code].subtitle;
+    const subEl = document.getElementById("pSubtitle");
+    if(sub){ subEl.style.display=""; subEl.textContent=sub; }
+    else { subEl.style.display="none"; }
+
+    document.getElementById("pWhen").textContent =
+      `${all[code].startDate.replaceAll("-",".")} ${all[code].startTime}` +
+      (all[code].endDate && all[code].endTime ? ` ~ ${all[code].endDate.replaceAll("-",".")} ${all[code].endTime}` : "");
+
+    document.getElementById("pWhere").textContent = all[code].location;
+
+    const note = all[code].note;
+    const noteWrap = document.getElementById("pNoteWrap");
+    if(note){ noteWrap.style.display=""; document.getElementById("pNote").textContent = note; }
+    else { noteWrap.style.display="none"; }
+
+    document.getElementById("dday").textContent = calcDDay(all[code].startDate);
+    setInviteBg(all[code].theme);
+
+    toast("초대장 만들기 완료");
+  });
+
+  // share
+  document.getElementById("btnShare").addEventListener("click", async ()=>{
+    if(!code) return;
+    const url = `${location.origin}${location.pathname.replace("before.html","before.html")}?code=${encodeURIComponent(code)}`;
+    try{
+      await navigator.clipboard.writeText(url);
+      toast("링크를 복사했어");
+    }catch(e){
+      // fallback
+      const ta=document.createElement("textarea"); ta.value=url;
+      document.body.appendChild(ta); ta.select(); document.execCommand("copy"); document.body.removeChild(ta);
+      toast("링크를 복사했어");
+    }
+  });
+
+  // save image (invite)
+  document.getElementById("btnSaveImg").addEventListener("click", async ()=>{
+    const wrap = document.getElementById("previewWrap");
+    if(wrap.style.display==="none") return toast("먼저 초대장을 만들어줘");
+    const card = document.getElementById("inviteCard");
+    const canvas = await html2canvas(card, {backgroundColor:null, scale:2});
+    const a=document.createElement("a");
+    a.download = `partyzip-invite-${code}.png`;
+    a.href = canvas.toDataURL("image/png");
+    a.click();
+    toast("이미지로 저장했어");
+  });
+
+  // intro
+  document.getElementById("btnGoIntro").addEventListener("click", ()=> location.href="index.html");
+
+  // auto route if date reached (단순 체크)
+  window.setInterval(()=>{
+    if(!code || !all[code]) return;
+    const next = routeByDate(all[code]);
+    if(next !== "before.html"){
+      location.href = `${next}?code=${encodeURIComponent(code)}`;
+    } else {
+      // keep D-day live
+      const d = all[code].startDate;
+      const el=document.getElementById("dday");
+      if(el && d) el.textContent = calcDDay(d);
+    }
+  }, 30000);
+</script>
+</body>
+</html>
